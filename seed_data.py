@@ -18,8 +18,8 @@ from backend.student_service import create_student
 
 TEST_STUDENTS = [
     {
-        "username": "debnil123",
-        "password": "1234",
+        "username": "debnil",
+        "password": "mypass2",
         "student_id": "STU-001",
         "name": "Debnil",
         "age": 20,
@@ -29,8 +29,8 @@ TEST_STUDENTS = [
         "hobbies": "Photography",
     },
     {
-        "username": "jyotirmoy123",
-        "password": "1234",
+        "username": "jyotirmoy",
+        "password": "mypass3",
         "student_id": "STU-002",
         "name": "Jyotirmoy",
         "age": 21,
@@ -40,8 +40,8 @@ TEST_STUDENTS = [
         "hobbies": "Reading",
     },
     {
-        "username": "kaustav123",
-        "password": "1234",
+        "username": "kaustav",
+        "password": "mypass1",
         "student_id": "STU-003",
         "name": "Kaustav",
         "age": 22,
@@ -51,8 +51,8 @@ TEST_STUDENTS = [
         "hobbies": "Gaming",
     },
     {
-        "username": "soumita123",
-        "password": "1234",
+        "username": "soumita",
+        "password": "mypass4",
         "student_id": "STU-004",
         "name": "Soumita",
         "age": 20,
@@ -121,11 +121,11 @@ def main():
     print("""
 Test data seeded successfully!
 
-STUDENT CREDENTIALS (password: 1234):
-  debnil123     -> STU-001 - Debnil
-  jyotirmoy123  -> STU-002 - Jyotirmoy
-  kaustav123    -> STU-003 - Kaustav
-  soumita123    -> STU-004 - Soumita
+STUDENT CREDENTIALS:
+  kaustav   -> password: mypass1  |  STU-003 - Kaustav
+  debnil    -> password: mypass2  |  STU-001 - Debnil
+  jyotirmoy -> password: mypass3  |  STU-002 - Jyotirmoy
+  soumita   -> password: mypass4  |  STU-004 - Soumita
 
 FACULTY CREDENTIALS:
   admin123  -> password: admin100

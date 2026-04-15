@@ -7,7 +7,7 @@ python-dotenv>=1.0.0
 
 # Image processing & CV
 opencv-python>=4.8.0
-numpy>=1.26.0
+numpy<2
 pillow>=10.0.0
 
 # Data handling

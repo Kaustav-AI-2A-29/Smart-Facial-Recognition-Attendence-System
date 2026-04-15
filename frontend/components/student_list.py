@@ -4,7 +4,7 @@ student_list.py — Searchable/filterable student list component for faculty.
 
 import streamlit as st
 import pandas as pd
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 
 def render_student_list(students: List[Dict]) -> Optional[Dict]:
