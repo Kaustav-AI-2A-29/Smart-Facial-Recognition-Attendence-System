@@ -35,7 +35,7 @@
 
 The **Smart Facial Recognition Attendance System** is a fully offline, production-ready attendance management tool designed for educational institutions. The system uses:
 
-- **dlib-powered multi-face recognition** to automatically detect and identify up to 5-8 students simultaneously from a live webcam feed.
+- **`face_recognition`-powered multi-face recognition** to automatically detect and identify up to 5-8 students simultaneously from a live webcam feed.
 - **Eye Aspect Ratio (EAR) blink detection** and **head yaw estimation** (liveness detection) to reject photo-based spoofing attacks.
 - **Role-based access control** — Students manage their own profiles; Faculty view all students, manage records, and run live attendance capture sessions.
 - **Local SQLite database** — No cloud, no Firebase, no Docker. Everything runs on your machine.
@@ -99,10 +99,10 @@ This is **not a prototype** — it follows production best practices: parameteri
 ```
 Webcam Frame
     ↓
-[1] Face Detection (dlib HOG)
+[1] Face Detection (HOG via face_recognition)
     → Up to 5-8 simultaneous faces
     ↓
-[2] Face Encoding (dlib ResNet)
+[2] Face Encoding (ResNet via face_recognition)
     → 128-dimensional vector per face
     ↓
 [3] Matching (Euclidean Distance)
@@ -148,9 +148,9 @@ Webcam Frame
 | **Backend** | Python | 3.10+ |
 | **Database** | SQLite (stdlib `sqlite3`) | Built-in |
 | **Authentication** | bcrypt | ≥4.1 |
-| **Face Detection** | dlib HOG detector | ≥19.24 *(optional)* |
-| **Face Encoding** | dlib ResNet-34 model | ≥19.24 *(optional)* |
-| **Liveness** | dlib landmarks (68-pt) + EAR | — |
+| **Face Detection** | `face_recognition` (HOG) | ≥1.3.0 *(optional)* |
+| **Face Encoding** | `face_recognition` (ResNet) | ≥1.3.0 *(optional)* |
+| **Liveness** | `face_recognition` landmarks (68-pt) + EAR | — |
 | **Image Processing** | OpenCV + Pillow | ≥4.8 / ≥10 |
 | **Data Export** | pandas + openpyxl | ≥1.4 / ≥3.1 |
 | **Config** | python-dotenv | ≥1.0 |
@@ -171,7 +171,7 @@ Smart-Facial-Recognition-Attendence-System/
 |   +-- attendance_service.py    # Attendance recording + queries
 |   +-- image_processor.py       # Profile picture + screenshot handling
 |   +-- encoding_manager.py      # Face encoding blob storage/retrieval
-|   +-- face_recognition_engine.py  # dlib detection + matching
+|   +-- face_recognition_engine.py  # face_recognition detection + matching
 |   +-- liveness_detector.py     # EAR blink + head yaw detection
 |
 +-- frontend/
@@ -209,7 +209,7 @@ Smart-Facial-Recognition-Attendence-System/
 
 ---
 
-## Quick Start
+## Quick Start / How to Run
 
 ```powershell
 # 1. Clone and enter the project
@@ -232,6 +232,17 @@ streamlit run frontend/app.py
 ```
 
 Open your browser at **http://localhost:8501**
+
+### Initial Login Credentials
+After running the app, use these seeded credentials to log in:
+
+**Admin / Faculty Login:**
+- **Username:** `admin`
+- **Password:** `admin123`
+
+**Student Login (Example):**
+- **Username:** `john_student`
+- **Password:** `password123`
 
 ---
 
@@ -264,7 +275,7 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-> **Note:** `dlib` is listed as optional in `requirements.txt` (commented out). The app works fully without it, except the live attendance capture page which requires dlib. See [Face Recognition Setup](#face-recognition-setup) for instructions.
+> **Note:** `dlib` and `face_recognition` are listed as optional in `requirements.txt`. The app works fully without them, except the live attendance capture page which requires them. See [Face Recognition Setup](#face-recognition-setup) for instructions.
 
 ### Step 4: Initialize Database
 
@@ -315,10 +326,6 @@ PROCESS_EVERY_N=2             # Process every Nth frame (skip for performance)
 DATASET_DIR=./data/dataset
 SCREENSHOTS_DIR=./data/screenshots
 PROFILE_PICTURES_DIR=./data/profile_pictures
-
-# Model file paths (only needed when dlib is installed)
-LANDMARKS_DAT=shape_predictor_68_face_landmarks.dat
-FACE_REC_DAT=dlib_face_recognition_resnet_model_v1.dat
 ```
 
 ---
@@ -352,27 +359,18 @@ Faculty → Faculty Dashboard (all students + capture)
 
 ## Face Recognition Setup
 
-> The app works fully **without dlib** — all pages load, login works, profiles are editable, etc. Only the **03_Attendance_Capture.py** page requires dlib.
+> The app works fully **without face_recognition** — all pages load, login works, profiles are editable, etc. Only the **03_Attendance_Capture.py** page requires it.
 
-### Installing dlib on Windows
+### Installing face_recognition on Windows
 
-dlib requires **C++ Build Tools** and **CMake** to compile:
+`face_recognition` depends on `dlib`, which requires **C++ Build Tools** and **CMake** to compile:
 
 1. Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) — select "Desktop development with C++"
 2. Install [CMake](https://cmake.org/download/) and add to PATH
-3. Install dlib:
+3. Install the packages:
    ```powershell
-   pip install dlib
+   pip install dlib face_recognition==1.3.0
    ```
-
-### Download Model Files
-
-Download these two files and place them in the project **root directory**:
-
-| File | Download Link |
-|------|--------------|
-| `shape_predictor_68_face_landmarks.dat` | [dlib.net](http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2) |
-| `dlib_face_recognition_resnet_model_v1.dat` | [dlib.net](http://dlib.net/files/dlib_face_recognition_resnet_model_v1.dat.bz2) |
 
 ### Prepare Training Images
 
@@ -390,7 +388,7 @@ data/dataset/
 
 ### Generate Encodings
 
-Once dlib is installed and images are in place, run the encoding loader from within the app or via Python:
+Once dependencies are installed and images are in place, run the encoding loader from within the app or via Python:
 
 ```python
 from backend.encoding_manager import load_encodings_from_images
@@ -466,7 +464,7 @@ After running `setup_database.py` and `seed_data.py`:
 
 | Method | Description |
 |--------|-------------|
-| `detect_faces(frame)` | dlib HOG → list of (x,y,w,h) |
+| `detect_faces(frame)` | `face_recognition` HOG → list of (x,y,w,h) |
 | `get_face_encoding(frame, location)` | 128-dim numpy array |
 | `match_face(encoding, threshold)` | Returns (student_id, confidence) |
 | `recognize_frame(frame)` | Full pipeline result list |
@@ -536,17 +534,17 @@ tests/test_face_recognition.py::test_detect_faces_dlib    SKIPPED (dlib not inst
 - [x] Attendance service (one record/day, stats, export)
 - [x] Image processing (profile picture + screenshot compression)
 - [x] Face encoding blob storage/retrieval
-- [x] dlib face recognition engine (detection + encoding + matching)
+- [x] `face_recognition` engine (detection + encoding + matching)
 - [x] Liveness detector (EAR + head yaw)
 - [x] Streamlit multi-page app (login, student dashboard, faculty dashboard, capture)
 - [x] Reusable components (sidebar, attendance table, student list, camera widget, profile form)
 - [x] `.env` configuration + `.gitignore`
 - [x] Pytest suite (19 tests passing)
+- [x] Install and integrate `face_recognition`
+- [x] Encoding generation from dataset images
+- [x] Live webcam attendance session with bounding box overlay
 
 ### Planned
-- [ ] Install and integrate dlib (requires C++ Build Tools)
-- [ ] Encoding generation from dataset images
-- [ ] Live webcam attendance session with bounding box overlay
 - [ ] Password reset (admin-only)
 - [ ] Streamlit auto-refresh polling (5-10 sec) for faculty view
 - [ ] Attendance report PDF generation
@@ -580,5 +578,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-*Built with Python · Streamlit · SQLite · dlib · OpenCV*  
+*Built with Python · Streamlit · SQLite · face_recognition · OpenCV*  
 *Last updated: April 15, 2026*
