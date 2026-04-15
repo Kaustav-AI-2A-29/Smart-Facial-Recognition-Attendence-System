@@ -1,4 +1,22 @@
-face_recognition==1.3.0
-opencv-python==4.8.1.78
-numpy==1.26.4
-openpyxl==3.1.5
+# Core framework
+streamlit>=1.32.0
+
+# Database & auth
+bcrypt>=4.1.0
+python-dotenv>=1.0.0
+
+# Image processing & CV
+opencv-python>=4.8.0
+numpy>=1.26.0
+pillow>=10.0.0
+
+# Data handling
+pandas>=1.4.0
+openpyxl>=3.1.0
+
+# Testing
+pytest>=8.0.0
+
+# Face Recognition (install separately — requires C++ Build Tools + CMake)
+# dlib>=19.24.0
+# face_recognition==1.3.0  # optional high-level wrapper

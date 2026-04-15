@@ -1,0 +1,43 @@
+# Dependencies
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/database.sqlite
+
+# Credentials & Secrets
+.env
+.env.local
+serviceAccountKey.json
+
+# Face Recognition Models
+*.dat
+shape_predictor_68_face_landmarks.dat
+
+# Temporary Files
+*.log
+*.tmp
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Screenshots & Profile data (large binary)
+data/screenshots/
+data/profile_pictures/
