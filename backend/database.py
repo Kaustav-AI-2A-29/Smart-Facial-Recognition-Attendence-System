@@ -14,7 +14,8 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-_DB_PATH = os.getenv("DATABASE_URL", "./data/database.sqlite")
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_DB_PATH = os.getenv("DATABASE_URL", os.path.join(_BASE_DIR, "data", "database.sqlite"))
 
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS users (

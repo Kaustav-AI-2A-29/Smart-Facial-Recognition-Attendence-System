@@ -15,7 +15,8 @@ load_dotenv()
 from backend.database import Database
 from backend.auth import hash_password
 
-DB_PATH = os.getenv("DATABASE_URL", "./data/database.sqlite")
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.getenv("DATABASE_URL", os.path.join(_BASE_DIR, "data", "database.sqlite"))
 
 
 def main():

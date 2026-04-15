@@ -17,8 +17,9 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-SCREENSHOTS_DIR = os.getenv("SCREENSHOTS_DIR", "./data/screenshots")
-PROFILE_PICTURES_DIR = os.getenv("PROFILE_PICTURES_DIR", "./data/profile_pictures")
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCREENSHOTS_DIR = os.getenv("SCREENSHOTS_DIR", os.path.join(_BASE_DIR, "data", "screenshots"))
+PROFILE_PICTURES_DIR = os.getenv("PROFILE_PICTURES_DIR", os.path.join(_BASE_DIR, "data", "profile_pictures"))
 SCREENSHOT_WIDTH = int(os.getenv("SCREENSHOT_WIDTH", "640"))
 SCREENSHOT_QUALITY = int(os.getenv("SCREENSHOT_QUALITY", "85"))
 

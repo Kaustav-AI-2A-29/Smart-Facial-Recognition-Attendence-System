@@ -15,7 +15,8 @@ from backend.database import db
 
 logger = logging.getLogger(__name__)
 
-DATASET_DIR = os.getenv("DATASET_DIR", "./data/dataset")
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATASET_DIR = os.getenv("DATASET_DIR", os.path.join(_BASE_DIR, "dataset"))
 
 
 def save_encoding_to_blob(encoding: np.ndarray) -> bytes:
