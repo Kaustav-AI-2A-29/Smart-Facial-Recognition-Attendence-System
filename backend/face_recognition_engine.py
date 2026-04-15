@@ -1,7 +1,7 @@
 """
 face_recognition_engine.py — Multi-face detection, encoding, and matching.
-Note: Requires dlib + shape_predictor_68_face_landmarks.dat to be installed.
-Gracefully stubs when dlib is unavailable.
+Note: Requires face_recognition to be installed.
+Gracefully stubs when face_recognition is unavailable.
 """
 
 import logging
@@ -12,22 +12,21 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-MATCH_THRESHOLD = float(os.getenv("MATCH_THRESHOLD", "0.45"))
+MATCH_THRESHOLD = float(os.getenv("MATCH_THRESHOLD", "0.48"))
 PROCESS_EVERY_N = int(os.getenv("PROCESS_EVERY_N", "2"))
 
 try:
-    import dlib
-    _DLIB_AVAILABLE = True
+    import face_recognition
+    _FR_AVAILABLE = True
 except ImportError:
-    _DLIB_AVAILABLE = False
-    logger.warning("dlib not installed. FaceRecognitionEngine will return empty results.")
+    _FR_AVAILABLE = False
+    logger.warning("face_recognition not installed. FaceRecognitionEngine will return empty results.")
 
 
 class FaceRecognitionEngine:
-    """Multi-face detection, encoding, and matching using dlib.
+    """Multi-face detection, encoding, and matching using face_recognition.
 
-    When dlib is unavailable (e.g., during initial setup), all methods
-    return safe empty defaults so the rest of the app can still run.
+    When face_recognition is unavailable, all methods return safe empty defaults.
     """
 
     def __init__(self, face_encodings_dict: Dict[str, np.ndarray] = None):
@@ -37,35 +36,7 @@ class FaceRecognitionEngine:
             face_encodings_dict: Mapping of student_id → 128-dim numpy array.
         """
         self.known_encodings: Dict[str, np.ndarray] = face_encodings_dict or {}
-        self._detector = None
-        self._shape_predictor = None
-        self._face_rec_model = None
         self._frame_count = 0
-
-        if _DLIB_AVAILABLE:
-            self._init_dlib()
-
-    def _init_dlib(self) -> None:
-        """Load dlib models."""
-        try:
-            self._detector = dlib.get_frontal_face_detector()
-            landmarks_path = os.getenv(
-                "LANDMARKS_DAT", "shape_predictor_68_face_landmarks.dat"
-            )
-            rec_model_path = os.getenv(
-                "FACE_REC_DAT", "dlib_face_recognition_resnet_model_v1.dat"
-            )
-            if os.path.exists(landmarks_path):
-                self._shape_predictor = dlib.shape_predictor(landmarks_path)
-            else:
-                logger.warning("Landmarks model not found: %s", landmarks_path)
-
-            if os.path.exists(rec_model_path):
-                self._face_rec_model = dlib.face_recognition_model_v1(rec_model_path)
-            else:
-                logger.warning("Face rec model not found: %s", rec_model_path)
-        except Exception as exc:
-            logger.error("Failed to initialize dlib models: %s", exc)
 
     def detect_faces(self, frame: np.ndarray) -> List[Tuple[int, int, int, int]]:
         """Detect all faces in a BGR frame.
@@ -76,16 +47,19 @@ class FaceRecognitionEngine:
         Returns:
             List of (x, y, w, h) bounding boxes.
         """
-        if not _DLIB_AVAILABLE or self._detector is None:
+        if not _FR_AVAILABLE:
             return []
         import cv2
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        detections = self._detector(rgb, 1)
+        
+        # Returns (top, right, bottom, left)
+        css_boxes = face_recognition.face_locations(rgb)
+        
         boxes = []
-        for d in detections:
-            x, y = max(0, d.left()), max(0, d.top())
-            w = d.right() - d.left()
-            h = d.bottom() - d.top()
+        for top, right, bottom, left in css_boxes:
+            x, y = max(0, left), max(0, top)
+            w = right - left
+            h = bottom - top
             boxes.append((x, y, w, h))
         return boxes
 
@@ -101,16 +75,18 @@ class FaceRecognitionEngine:
         Returns:
             128-dimensional numpy array, or None if unavailable.
         """
-        if not _DLIB_AVAILABLE or self._shape_predictor is None or self._face_rec_model is None:
+        if not _FR_AVAILABLE:
             return None
         import cv2
-        import dlib
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         x, y, w, h = face_location
-        rect = dlib.rectangle(x, y, x + w, y + h)
-        shape = self._shape_predictor(rgb, rect)
-        encoding = np.array(self._face_rec_model.compute_face_descriptor(rgb, shape))
-        return encoding
+        # Convert back to css format (top, right, bottom, left)
+        css_box = (y, x + w, y + h, x)
+        
+        encodings = face_recognition.face_encodings(rgb, known_face_locations=[css_box])
+        if encodings:
+            return encodings[0]
+        return None
 
     def match_face(
         self, encoding: np.ndarray, threshold: float = MATCH_THRESHOLD

@@ -32,28 +32,25 @@ if not st.session_state.logged_in or st.session_state.role != "faculty":
 st.title("📷 Real-Time Attendance Capture")
 st.caption("Multi-face recognition · Liveness detection · Auto attendance marking")
 
-# ── dlib check ─────────────────────────────────────────────────────────
+# ── face_recognition check ───────────────────────────────────────────────
 try:
-    import dlib
-    _dlib_ok = True
+    import face_recognition
+    _fr_ok = True
 except ImportError:
-    _dlib_ok = False
+    _fr_ok = False
 
-if not _dlib_ok:
+if not _fr_ok:
     st.warning(
-        "⚠️ **dlib is not installed.** Face recognition is disabled. "
-        "Install dlib to enable live attendance capture.\n\n"
+        "⚠️ **face_recognition is not installed.** Face recognition is disabled. "
+        "Install the face-recognition library to enable live attendance capture.\n\n"
         "Once installed, this page will automatically enable the camera feed."
     )
     st.info(
-        "**How to install dlib on Windows:**\n"
+        "**How to install face_recognition on Windows:**\n"
         "1. Install [CMake](https://cmake.org/download/) and Visual Studio Build Tools.\n"
-        "2. Run: `pip install dlib`\n"
-        "3. Download model files:\n"
-        "   - `shape_predictor_68_face_landmarks.dat`\n"
-        "   - `dlib_face_recognition_resnet_model_v1.dat`\n"
-        "4. Place both `.dat` files in the project root.\n"
-        "5. Restart the app."
+        "2. Run: `pip install dlib` (required dependency)\n"
+        "3. Run: `pip install face_recognition==1.3.0`\n"
+        "4. Restart the app."
     )
     st.stop()
 

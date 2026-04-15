@@ -18,55 +18,55 @@ from backend.student_service import create_student
 
 TEST_STUDENTS = [
     {
-        "username": "john_student",
-        "password": "password123",
+        "username": "debnil123",
+        "password": "1234",
         "student_id": "STU-001",
-        "name": "John Doe",
+        "name": "Debnil",
         "age": 20,
         "roll_number": "CS-2024-001",
         "department": "Computer Science",
-        "email": "john@college.edu",
-        "hobbies": "Photography, Coding",
+        "email": "debnil@college.edu",
+        "hobbies": "Photography",
     },
     {
-        "username": "sarah_student",
-        "password": "password123",
+        "username": "jyotirmoy123",
+        "password": "1234",
         "student_id": "STU-002",
-        "name": "Sarah Smith",
+        "name": "Jyotirmoy",
         "age": 21,
         "roll_number": "CS-2024-002",
         "department": "Computer Science",
-        "email": "sarah@college.edu",
-        "hobbies": "Reading, Chess",
+        "email": "jyotirmoy@college.edu",
+        "hobbies": "Reading",
     },
     {
-        "username": "mike_student",
-        "password": "password123",
+        "username": "kaustav123",
+        "password": "1234",
         "student_id": "STU-003",
-        "name": "Mike Johnson",
+        "name": "Kaustav",
         "age": 22,
         "roll_number": "IT-2024-001",
         "department": "Information Technology",
-        "email": "mike@college.edu",
-        "hobbies": "Gaming, Music",
+        "email": "kaustav@college.edu",
+        "hobbies": "Gaming",
     },
     {
-        "username": "emma_student",
-        "password": "password123",
+        "username": "soumita123",
+        "password": "1234",
         "student_id": "STU-004",
-        "name": "Emma Wilson",
+        "name": "Soumita",
         "age": 20,
         "roll_number": "CS-2024-003",
         "department": "Computer Science",
-        "email": "emma@college.edu",
-        "hobbies": "Art, Writing",
+        "email": "soumita@college.edu",
+        "hobbies": "Art",
     },
 ]
 
 TEST_FACULTY = [
     {
-        "username": "faculty_admin",
-        "password": "admin123",
+        "username": "admin123",
+        "password": "admin100",
         "name": "Dr. Admin",
         "email": "admin@college.edu",
         "department": "Administration",
@@ -121,14 +121,14 @@ def main():
     print("""
 Test data seeded successfully!
 
-STUDENT CREDENTIALS (password: password123):
-  john_student  -> STU-001 - John Doe
-  sarah_student -> STU-002 - Sarah Smith
-  mike_student  -> STU-003 - Mike Johnson
-  emma_student  -> STU-004 - Emma Wilson
+STUDENT CREDENTIALS (password: 1234):
+  debnil123     -> STU-001 - Debnil
+  jyotirmoy123  -> STU-002 - Jyotirmoy
+  kaustav123    -> STU-003 - Kaustav
+  soumita123    -> STU-004 - Soumita
 
 FACULTY CREDENTIALS:
-  faculty_admin  -> password: admin123
+  admin123  -> password: admin100
 """)
 
 

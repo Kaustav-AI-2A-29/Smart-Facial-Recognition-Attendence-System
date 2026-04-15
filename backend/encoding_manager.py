@@ -115,26 +115,26 @@ def delete_encodings(student_id: str) -> int:
 def load_encodings_from_images(dataset_dir: str = DATASET_DIR) -> bool:
     """Placeholder: generate and store encodings from dataset images.
 
-    This function requires dlib to be installed. It scans:
+    This function requires face_recognition to be installed. It scans:
         dataset_dir/{student_name}/*.jpg
 
-    When dlib is available, replace the body with actual encoding logic.
+    When face_recognition is available, replace the body with actual encoding logic.
 
     Args:
         dataset_dir: Root directory containing per-student image subfolders.
 
     Returns:
-        True if dlib is available and encodings were processed, False otherwise.
+        True if face_recognition is available and encodings were processed, False otherwise.
     """
     try:
-        import dlib  # noqa: F401
+        import face_recognition  # noqa: F401
     except ImportError:
         logger.warning(
-            "dlib not installed. Skipping image-based encoding generation. "
-            "Install dlib to enable face recognition."
+            "face_recognition not installed. Skipping image-based encoding generation. "
+            "Install face_recognition to enable face recognition."
         )
         return False
 
-    # --- dlib encoding logic goes here when dlib is available ---
-    logger.info("dlib detected — encoding generation from %s would proceed here.", dataset_dir)
+    # --- face_recognition encoding logic goes here when available ---
+    logger.info("face_recognition detected — encoding generation from %s would proceed here.", dataset_dir)
     return True

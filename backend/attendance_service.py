@@ -77,9 +77,11 @@ def get_attendance_by_student(student_id: str, limit: int = 30) -> List[Dict]:
     """
     rows = db.execute(
         """
-        SELECT * FROM attendance
-        WHERE student_id = ?
-        ORDER BY date DESC, time_in DESC
+        SELECT a.*, s.name as student_name
+        FROM attendance a
+        LEFT JOIN students s ON a.student_id = s.student_id
+        WHERE a.student_id = ?
+        ORDER BY a.date DESC, a.time_in DESC
         LIMIT ?
         """,
         (student_id, limit),
@@ -145,10 +147,15 @@ def get_all_attendance() -> List[Dict]:
     """Fetch all attendance records (for faculty-level reporting).
 
     Returns:
-        List of all attendance record dictionaries.
+        List of all attendance record dictionaries including student names.
     """
     rows = db.execute(
-        "SELECT * FROM attendance ORDER BY date DESC, time_in DESC"
+        """
+        SELECT a.*, s.name as student_name
+        FROM attendance a
+        LEFT JOIN students s ON a.student_id = s.student_id
+        ORDER BY a.date DESC, a.time_in DESC
+        """
     )
     return [dict(r) for r in rows]
 

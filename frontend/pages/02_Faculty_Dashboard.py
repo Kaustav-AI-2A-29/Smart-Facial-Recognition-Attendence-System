@@ -134,6 +134,17 @@ else:
 
 st.divider()
 
+# ── Recent Attendance Logs ─────────────────────────────────────────────
+st.markdown("#### 📸 Recent Attendance Logs")
+from backend.attendance_service import get_all_attendance
+all_attendance = get_all_attendance()
+if not all_attendance:
+    st.info("No attendance records found.")
+else:
+    render_attendance_table(all_attendance, show_screenshot=True, show_confidence=True)
+
+st.divider()
+
 # Full data export
 import pandas as pd
 
