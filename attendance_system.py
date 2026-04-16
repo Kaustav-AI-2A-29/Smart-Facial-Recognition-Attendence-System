@@ -35,7 +35,7 @@ from backend.attendance_service import record_attendance
 #  CONFIGURATION
 # ─────────────────────────────────────────────
 DATASET_DIR       = "dataset"       # folder containing sub-folders per person
-ATTENDANCE_FILE   = "attendance.csv"
+ATTENDANCE_FILE   = "attendance_system.csv"
 SCREENSHOTS_DIR   = "screenshots"   # folder for saving attendance photos
 MATCH_THRESHOLD   = 0.48            # lower = stricter match (tightened for accuracy)
 CONFIRM_FRAMES    = 10              # consecutive frames needed to confirm identity
@@ -113,11 +113,11 @@ def ensure_csv_header(filepath: str):
     if write_header:
         with open(filepath, 'w', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow(["Name", "Time (HH:MM:SS)", "Date (YYYY-MM-DD)"])
+            writer.writerow(["Name", "Time (HH:MM:SS)", "Date (YYYY-MM-DD)", "Confidence", "Screenshot"])
 
 
 def load_todays_attendance(filepath: str) -> set:
-    """Return a set of names already marked today."""
+    """Return a set of names already marked today (for DB dedup only)."""
     marked = set()
     today  = datetime.now().strftime("%Y-%m-%d")
 
@@ -133,21 +133,25 @@ def load_todays_attendance(filepath: str) -> set:
     return marked
 
 
-def mark_attendance(name: str, filepath: str, marked_today: set):
-    """Append a new attendance record if not already marked today."""
-    if name in marked_today:
-        return  # already recorded
+def mark_attendance(name: str, filepath: str, marked_today: set,
+                    confidence: float = 0.0, screenshot_path: str = ""):
+    """Append EVERY recognition event to the CSV log (no dedup).
 
-    now   = datetime.now()
-    today = now.strftime("%Y-%m-%d")
-    time_str  = now.strftime("%H:%M:%S")
+    The set `marked_today` is still updated so the *database* only gets
+    one record per student per day (preventing duplicate DB rows), but
+    the CSV file captures every single attendance event for a full log.
+    """
+    now      = datetime.now()
+    today    = now.strftime("%Y-%m-%d")
+    time_str = now.strftime("%H:%M:%S")
 
+    # Always append to CSV — full event log (no dedup)
     with open(filepath, "a", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow([name, time_str, today])
+        writer.writerow([name, time_str, today, f"{confidence:.1f}%", screenshot_path])
 
-    marked_today.add(name)
-    print(f"[ATTENDANCE] ✓ {name} marked at {time_str} on {today}")
+    marked_today.add(name)  # used to gate the DB write only
+    print(f"[ATTENDANCE] ✓ {name} marked at {time_str} on {today} (conf={confidence:.1f}%)")
 
 
 def get_student_id_by_name(name: str) -> str:
@@ -466,22 +470,29 @@ def main():
                         newly_confirmed, display_name = tracker.update(raw_name)
 
                         # Mark attendance on confirmation
-                        if newly_confirmed and newly_confirmed not in marked_today:
-                            # FIX 2: Save screenshot when attendance is marked
+                        if newly_confirmed:
+                            # Save screenshot for every confirmed recognition
                             timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
                             screenshot_filename = f"{SCREENSHOTS_DIR}/{newly_confirmed}_{timestamp_str}.jpg"
-                            # Use absolute path for screenshot storage
+                            # Use absolute path for reliable file access from any CWD
                             screenshot_abs_path = os.path.abspath(screenshot_filename)
                             cv2.imwrite(screenshot_abs_path, frame)
                             print(f"[INFO] Screenshot saved: {screenshot_abs_path}")
-                            
-                            # Save to CSV file
-                            mark_attendance(newly_confirmed, ATTENDANCE_FILE, marked_today)
-                            
-                            # Save to database with screenshot path and confidence
-                            save_attendance_to_database(newly_confirmed, screenshot_abs_path, confidence)
-                            
-                            # FIX 5: Non-blocking notification
+
+                            # Check *before* mark_attendance adds to the set
+                            is_first_today = newly_confirmed not in marked_today
+
+                            # Always write to CSV — full event log, no dedup
+                            mark_attendance(newly_confirmed, ATTENDANCE_FILE, marked_today,
+                                            confidence=confidence, screenshot_path=screenshot_abs_path)
+
+                            # Save to database only once per student per day
+                            if is_first_today:
+                                save_attendance_to_database(newly_confirmed, screenshot_abs_path, confidence)
+                            else:
+                                print(f"[DB] Skipping DB write for {newly_confirmed} — already recorded today")
+
+                            # Notification
                             notification_text = f"ATTENDANCE MARKED: {newly_confirmed}"
                             notification_expiry = time.time() + 2.0  # show for 2 seconds
                             tracker.reset()
