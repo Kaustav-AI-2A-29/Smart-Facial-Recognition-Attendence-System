@@ -8,9 +8,18 @@ import pandas as pd
 from datetime import datetime
 from typing import List, Dict, Optional
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from backend.database import db
 from backend.attendance_service import get_attendance_by_student, get_attendance_stats
+
+# ─────────────────────────────────────────────────────────────────────────
+# FIX: Use absolute database path to avoid working directory issues
+# ─────────────────────────────────────────────────────────────────────────
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_DB_PATH = os.getenv("DATABASE_URL", os.path.join(_BASE_DIR, "data", "database.sqlite"))
 
 
 def load_fresh_attendance_data(student_id: str, limit: int = 30) -> pd.DataFrame:
@@ -27,10 +36,12 @@ def load_fresh_attendance_data(student_id: str, limit: int = 30) -> pd.DataFrame
     Returns:
         DataFrame with attendance records
     """
-    # Create a completely fresh database connection each time
-    db_path = os.path.join("data", "database.sqlite")
-    conn = sqlite3.connect(db_path)
+    # Create a completely fresh database connection each time with absolute path
+    conn = sqlite3.connect(_DB_PATH)
     conn.row_factory = sqlite3.Row
+    
+    # Enable WAL mode for better concurrency
+    conn.execute("PRAGMA journal_mode=WAL")
     
     try:
         # Direct SQL query - no ORM, no caching, guaranteed fresh
@@ -79,9 +90,9 @@ def load_fresh_attendance_stats(
     Returns:
         Dictionary with statistics
     """
-    # Create fresh connection
-    db_path = os.path.join("data", "database.sqlite")
-    conn = sqlite3.connect(db_path)
+    # Create fresh connection with absolute path
+    conn = sqlite3.connect(_DB_PATH)
+    conn.execute("PRAGMA journal_mode=WAL")
     
     try:
         # Count present days

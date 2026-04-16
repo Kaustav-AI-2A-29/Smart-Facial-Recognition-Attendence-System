@@ -12,6 +12,7 @@ import streamlit as st
 from dotenv import load_dotenv
 import pandas as pd
 from datetime import date
+import time
 
 load_dotenv()
 
@@ -21,8 +22,13 @@ from frontend.components.sidebar import render_sidebar
 st.set_page_config(
     page_title="Attendance Records",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Disable all caching to ensure fresh data
+if 'last_refresh' not in st.session_state:
+    st.session_state.last_refresh = 0
 
 for key, default in {"logged_in": False, "role": None}.items():
     if key not in st.session_state:
@@ -37,13 +43,27 @@ if not st.session_state.logged_in or st.session_state.role != "faculty":
 st.title("📊 Attendance Records")
 st.caption("View recorded attendance with screenshots and timestamps")
 
+# ─────────────────────────────────────────────────────────────
+# Auto-refresh: Rerun every 5 seconds to check for new data
+# ─────────────────────────────────────────────────────────────
+placeholder_refresh = st.empty()
+if placeholder_refresh.button("🔄 Refresh Now", key="refresh_btn"):
+    st.rerun()
+
+# Auto-refresh interval
+refresh_interval = 5  # seconds
+current_time = time.time()
+if current_time - st.session_state.last_refresh > refresh_interval:
+    st.session_state.last_refresh = current_time
+    st.rerun()
+
 # Get filter options
 tab_today, tab_custom = st.tabs(["📅 Today", "🔍 Custom Date Range"])
 
 with tab_today:
     today_str = date.today().isoformat()
     
-    # Query attendance for today
+    # Query attendance for today - FORCE FRESH READ (no caching)
     rows = db.execute(
         """
         SELECT a.*, s.name as student_name, u.username

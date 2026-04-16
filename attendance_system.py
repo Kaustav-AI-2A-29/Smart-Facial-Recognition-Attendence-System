@@ -42,6 +42,12 @@ CONFIRM_FRAMES    = 10              # consecutive frames needed to confirm ident
 PROCESS_EVERY_N   = 2               # process every Nth frame (performance)
 DEBUG_MODE        = False           # Set to True only during development
 
+# Debug: Show database configuration
+print(f"[CONFIG] Dataset directory: {os.path.abspath(DATASET_DIR)}")
+print(f"[CONFIG] Attendance CSV: {os.path.abspath(ATTENDANCE_FILE)}")
+print(f"[CONFIG] Screenshots directory: {os.path.abspath(SCREENSHOTS_DIR)}")
+print(f"[CONFIG] Database path: {db.db_path if hasattr(db, 'db_path') else 'Unknown'}")
+
 
 # ─────────────────────────────────────────────
 #  STEP 1 – LOAD DATASET & BUILD ENCODINGS
@@ -175,21 +181,27 @@ def save_attendance_to_database(name: str, screenshot_path: str = None, confiden
     name = name.lower()
     student_id = get_student_id_by_name(name)
     if not student_id:
-        print(f"[WARN] Could not find student_id for {name}")
-        return
+        print(f"[ERROR] Could not find student_id for {name}")
+        return False
     
     try:
         # Use the standard record_attendance function from attendance_service
-        record_attendance(
+        result = record_attendance(
             student_id=student_id,
             screenshot_path=screenshot_path,
             confidence=confidence,  # Pass the actual confidence from identify_face
             liveness_passed=True,
             marked_by="system"
         )
-        print(f"[DB] Attendance saved for {name} ({student_id}) with confidence {confidence:.1f}%")
+        print(f"[DB] ✓ Attendance saved for {name} ({student_id}) with confidence {confidence:.1f}%")
+        print(f"[DB] Screenshot: {screenshot_path}")
+        print(f"[DB] Database write result: {result}")
+        return True
     except Exception as e:
         print(f"[ERROR] Failed to save attendance to database: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 # ─────────────────────────────────────────────
