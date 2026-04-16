@@ -146,7 +146,7 @@ def mark_attendance(name: str, filepath: str, marked_today: set):
 
 def get_student_id_by_name(name: str) -> str:
     """
-    Get student_id from database by name.
+    Get student_id from database by name (case-insensitive).
     
     Args:
         name: Student name (from dataset folder name)
@@ -154,8 +154,9 @@ def get_student_id_by_name(name: str) -> str:
     Returns:
         student_id or empty string if not found
     """
+    # Use LOWER() for case-insensitive matching
     result = db.execute_one(
-        "SELECT student_id FROM students WHERE name = ?",
+        "SELECT student_id FROM students WHERE LOWER(name) = LOWER(?)",
         (name,)
     )
     return result["student_id"] if result else ""
@@ -170,6 +171,8 @@ def save_attendance_to_database(name: str, screenshot_path: str = None, confiden
         screenshot_path: Path to screenshot file
         confidence: Face recognition confidence (0-100)
     """
+    # FIX 1: Normalize to lowercase for consistency
+    name = name.lower()
     student_id = get_student_id_by_name(name)
     if not student_id:
         print(f"[WARN] Could not find student_id for {name}")
@@ -445,6 +448,8 @@ def main():
                         tracker.update("Unknown")
                         draw_face_box(frame, top, right, bottom, left, "Unknown", False)
                     else:
+                        # FIX 1: Normalize to lowercase
+                        raw_name = raw_name.lower()
                         # Stability check
                         newly_confirmed, display_name = tracker.update(raw_name)
 

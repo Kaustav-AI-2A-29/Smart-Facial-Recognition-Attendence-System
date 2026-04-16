@@ -57,13 +57,18 @@ def login_user(username: str, password: str) -> Optional[Dict]:
         Keys: user_id, username, role, name, student_id (if student).
     """
     try:
+        # FIX 1: Normalize username to lowercase for consistency
+        username = username.lower()
         row = db.execute_one(
-            "SELECT id, username, password_hash, role, is_active FROM users WHERE username = ?",
+            "SELECT id, username, password_hash, role, is_active FROM users WHERE LOWER(username) = LOWER(?)",
             (username,),
         )
         if row is None:
             logger.warning("Login failed — unknown username: %s", username)
             return None
+        
+        # Normalize the returned username to lowercase too
+        username = row["username"].lower()
 
         if not row["is_active"]:
             logger.warning("Login failed — inactive account: %s", username)
@@ -75,7 +80,7 @@ def login_user(username: str, password: str) -> Optional[Dict]:
 
         user = {
             "user_id": row["id"],
-            "username": row["username"],
+            "username": username,  # Store lowercase username
             "role": row["role"],
             "student_id": None,
             "name": "",
@@ -123,6 +128,8 @@ def create_user(username: str, password: str, role: str) -> int:
     if role not in _VALID_ROLES:
         raise ValueError(f"Invalid role '{role}'. Must be one of: {_VALID_ROLES}")
 
+    # FIX 1: Normalize username to lowercase
+    username = username.lower()
     password_hash = hash_password(password)
     user_id = db.execute_insert(
         "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",

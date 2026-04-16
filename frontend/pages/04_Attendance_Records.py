@@ -61,7 +61,16 @@ with tab_today:
     if not records:
         st.info("ℹ️ No attendance records for today yet.")
     else:
-        st.success(f"✅ **{len(records)} student(s) marked present today**")
+        # Calculate present and absent counts
+        total_students = 4  # Number of students in the system
+        present_count = len(records)
+        absent_count = total_students - present_count
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("✅ Present", present_count)
+        col2.metric("❌ Absent", absent_count)
+        col3.metric("📊 Attendance %", f"{(present_count/total_students)*100:.0f}%")
+        
         st.divider()
         
         # Display attendance records with screenshots
@@ -74,8 +83,11 @@ with tab_today:
                 col_time.write(f"⏰ **Time:** {record['time_in']}")
                 col_id.write(f"📍 **ID:** {record['student_id']}")
                 
-                if record['face_confidence'] is not None:
-                    st.write(f"🎯 **Confidence:** {record['face_confidence']:.2%}")
+                # Display confidence as percentage
+                if record['face_confidence'] is not None and record['face_confidence'] > 0:
+                    st.write(f"🎯 **Confidence:** {record['face_confidence']:.1f}%")
+                else:
+                    st.write(f"🎯 **Confidence:** N/A")
             
             with col2:
                 # Display screenshot if available

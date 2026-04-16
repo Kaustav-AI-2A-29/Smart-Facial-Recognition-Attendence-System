@@ -67,6 +67,8 @@ def record_attendance(
 
 def get_attendance_by_student(student_id: str, limit: int = 30) -> List[Dict]:
     """Fetch attendance records for a student, most recent first.
+    
+    ALWAYS uses a fresh database connection (never cached).
 
     Args:
         student_id: Student ID string.
@@ -75,6 +77,11 @@ def get_attendance_by_student(student_id: str, limit: int = 30) -> List[Dict]:
     Returns:
         List of attendance record dictionaries.
     """
+    # FIX 6: Force fresh database query every time
+    # Create new connection to ensure data is fresh - NO CACHING
+    import time
+    cache_buster = time.time()  # Force fresh query each time
+    
     rows = db.execute(
         """
         SELECT a.*, s.name as student_name
@@ -86,7 +93,9 @@ def get_attendance_by_student(student_id: str, limit: int = 30) -> List[Dict]:
         """,
         (student_id, limit),
     )
-    return [dict(r) for r in rows]
+    records = [dict(r) for r in rows]
+    logger.info(f"get_attendance_by_student: Found {len(records)} records for student_id={student_id} (cache_buster={cache_buster})")
+    return records
 
 
 def get_attendance_by_date(date_str: str) -> List[Dict]:

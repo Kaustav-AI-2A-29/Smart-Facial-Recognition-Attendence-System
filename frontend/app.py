@@ -16,13 +16,17 @@ load_dotenv()
 from backend.auth import login_user
 from frontend.components.sidebar import render_sidebar
 
-# ── Page config ───────────────────────────────────────────────────────
+# ── Page config with caching DISABLED ───────────────────────────────
 st.set_page_config(
     page_title="Smart Attendance System",
     page_icon="🎓",
     layout="centered",
     initial_sidebar_state="expanded",
 )
+
+# FORCE NO CACHING – disable all streamlit caching
+st.cache_data.clear()
+st.cache_resource.clear()
 
 # ── Session state defaults ─────────────────────────────────────────────
 for key, default in {

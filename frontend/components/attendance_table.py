@@ -32,8 +32,9 @@ def render_attendance_table(
         rename_map["student_name"] = "Student Name"
 
     if show_confidence and "face_confidence" in df.columns:
+        # face_confidence is stored as 0-100, not as decimal
         df["face_confidence"] = df["face_confidence"].apply(
-            lambda x: f"{float(x)*100:.1f}%" if pd.notnull(x) else "—"
+            lambda x: f"{float(x):.1f}%" if pd.notnull(x) and float(x) > 0 else "—"
         )
         columns.append("face_confidence")
         rename_map["face_confidence"] = "Confidence"
