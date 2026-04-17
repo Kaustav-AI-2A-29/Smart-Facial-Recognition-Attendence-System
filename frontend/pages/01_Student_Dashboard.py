@@ -24,7 +24,7 @@ from frontend.realtime_data import (
 )
 from backend.image_processor import get_profile_picture_path
 from frontend.components.sidebar import render_sidebar
-from frontend.components.attendance_table import render_attendance_table
+from frontend.components.attendance_table import render_attendance_table, render_timetable
 from frontend.components.student_profile_form import render_profile_form
 
 st.set_page_config(page_title="Student Dashboard", page_icon="🎒", layout="wide")
@@ -35,6 +35,9 @@ for key, default in {
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
+
+if "week_offset" not in st.session_state:
+    st.session_state.week_offset = 0
 
 render_sidebar()
 
@@ -89,76 +92,84 @@ with tab_profile:
 
 with tab_attendance:
     from datetime import date, timedelta
-    
-    # STEP 1: Display refresh timestamp - proves fresh loads
-    col_timestamp, col_refresh = st.columns([3, 1])
-    with col_timestamp:
-        current_time = get_database_timestamp()
-        st.info(f"⏱️ **Last Refreshed:** {current_time} (Data is guaranteed fresh)")
-    
+
+    # ── Refresh controls ──────────────────────────────────────────
+    col_ts, col_refresh = st.columns([3, 1])
+    with col_ts:
+        st.info(f"⏱️ **Last Refreshed:** {get_database_timestamp()}")
     with col_refresh:
         if st.button("🔄 Refresh Now", use_container_width=True):
-            # Clear caches before rerun
             st.cache_data.clear()
             st.rerun()
 
     st.divider()
 
-    # STEP 2: Load attendance statistics with fresh connection
+    # ── Monthly stats ─────────────────────────────────────────────
     today = date.today()
     start_of_month = today.replace(day=1)
-    
     stats = load_fresh_attendance_stats(
         student["student_id"],
         start_of_month.isoformat(),
         today.isoformat(),
     )
-
     col1, col2, col3 = st.columns(3)
-    col1.metric("✅ Present", stats["present"])
-    col2.metric("❌ Absent", stats["absent"])
-    col3.metric("📊 This Month", f"{stats['percentage']}%")
+    col1.metric("✅ Periods Present (Month)", stats["present"])
+    col2.metric("❌ Periods Absent (Month)",  stats["absent"])
+    col3.metric("📊 Attendance %",            f"{stats['percentage']}%")
 
-    st.markdown("#### 📋 Attendance History (Fresh Data)")
-    
-    # STEP 3: Load attendance with guaranteed fresh connection
-    records_df = load_fresh_attendance_data(student["student_id"], limit=30)
-    
-    # Convert DataFrame to list of dicts for display
-    records = records_df.to_dict('records') if not records_df.empty else []
-    
-    # STEP 4: Show debug info and latest record
-    st.success(f"✅ Retrieved {len(records)} record(s) from database")
-    
-    if records:
-        # Show latest record details
-        latest = records[0]
-        st.info(
-            f"📍 **Latest:** {latest.get('date')} at {latest.get('time_in')} "
-            f"→ Confidence: **{latest.get('face_confidence', 0):.1f}%**"
-        )
-    
-    # STEP 5: Display raw data table
-    if not records_df.empty:
-        st.warning("🔍 **Raw Database Output (Debug View):**")
-        # Select key columns for display
-        display_cols = ['date', 'time_in', 'face_confidence', 'student_name', 'screenshot_path']
-        display_cols = [col for col in display_cols if col in records_df.columns]
-        st.dataframe(records_df[display_cols], use_container_width=True, hide_index=True)
-    else:
-        st.warning("⚠️ No attendance records yet. Start marking attendance to see data here.")
-    
-    # STEP 6: Display formatted attendance table
     st.divider()
-    st.markdown("#### 📅 Formatted Attendance Table")
-    render_attendance_table(records, show_screenshot=True)
 
+    # ── Week navigation ───────────────────────────────────────────
+    st.markdown("#### 📅 Weekly Timetable")
+
+    # Compute the Monday of the current displayed week
+    current_monday = today - timedelta(days=today.weekday())
+    display_monday = current_monday + timedelta(
+        weeks=st.session_state.week_offset
+    )
+
+    nav_col1, nav_col2, nav_col3 = st.columns([1, 3, 1])
+    with nav_col1:
+        if st.button("← Prev Week"):
+            st.session_state.week_offset -= 1
+            st.rerun()
+    with nav_col2:
+        week_end = display_monday + timedelta(days=4)
+        st.markdown(
+            f"<div style='text-align:center;font-weight:500'>"
+            f"{display_monday.strftime('%d %b')} – {week_end.strftime('%d %b %Y')}"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    with nav_col3:
+        if st.button("Next Week →"):
+            st.session_state.week_offset += 1
+            st.rerun()
+
+    if st.session_state.week_offset != 0:
+        if st.button("📍 Back to current week"):
+            st.session_state.week_offset = 0
+            st.rerun()
+
+    st.markdown("")  # spacing
+
+    # ── Load records and render timetable ─────────────────────────
+    records_df = load_fresh_attendance_data(student["student_id"], limit=200)
+    records = records_df.to_dict("records") if not records_df.empty else []
+    st.success(f"✅ {len(records)} total period record(s) on file")
+
+    render_timetable(records, week_start=display_monday)
+
+    # ── CSV export ────────────────────────────────────────────────
     if records:
         import pandas as pd
-        df_export = pd.DataFrame(records)[["student_id", "date", "time_in", "face_confidence"]]
-        csv = df_export.to_csv(index=False).encode()
+        df_export = pd.DataFrame(records)
+        available_cols = [c for c in
+            ["student_id", "date", "period", "time_in", "face_confidence"]
+            if c in df_export.columns]
+        csv = df_export[available_cols].to_csv(index=False).encode()
         st.download_button(
-            "⬇️ Download Report (CSV)",
+            "⬇️ Download Full Report (CSV)",
             data=csv,
             file_name=f"{student['student_id']}_attendance.csv",
             mime="text/csv",

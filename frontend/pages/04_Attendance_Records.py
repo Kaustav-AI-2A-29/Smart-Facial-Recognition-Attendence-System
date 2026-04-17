@@ -144,37 +144,56 @@ with tab_today:
 
     st.divider()
 
-    if not records:
-        st.info("ℹ️ No attendance records for today yet.")
-    else:
-        for rec in sorted(records, key=lambda r: r["time_in"], reverse=True):
-            col_info, col_img = st.columns([2, 1])
+    # ── Current period helper ────────────────────────────────────────────
+    _h = datetime.now().hour
+    current_period = {9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 6, 15: 7}.get(_h, 1)
 
-            sid = get_student_id(rec["name"])
+    # ── Period-grouped view ─────────────────────────────────────────────
+    st.markdown("#### 📋 Period-wise Attendance (Today)")
 
-            with col_info:
-                st.subheader(f"👤 {rec['name']}")
-                c1, c2 = st.columns(2)
-                c1.write(f"⏰ **Time:** {rec['time_in']}")
-                c2.write(f"📍 **ID:** {sid}")
-                conf_raw = rec["confidence"].replace("%", "").strip()
-                try:
-                    conf_val = float(conf_raw)
-                    st.write(f"🎯 **Confidence:** {conf_val:.1f}%")
-                except ValueError:
-                    st.write(f"🎯 **Confidence:** {rec['confidence'] or 'N/A'}")
+    PERIOD_TIMES = {
+        1: "09:00–10:00", 2: "10:00–11:00", 3: "11:00–12:00",
+        4: "12:00–13:00", 5: "13:00–14:00", 6: "14:00–15:00",
+        7: "15:00–16:00",
+    }
 
-            with col_img:
-                resolved = resolve_screenshot(rec["screenshot"])
-                if resolved:
-                    try:
-                        st.image(resolved, width=200, caption="Captured face")
-                    except Exception as e:
-                        st.warning(f"Could not load image: {e}")
-                else:
-                    st.warning("No screenshot available")
+    # Load today's records directly from the DB (has period column):
+    from backend.attendance_service import get_attendance_by_date
+    db_records_today = get_attendance_by_date(today_str)
 
-            st.divider()
+    # Group by period
+    from collections import defaultdict
+    by_period = defaultdict(list)
+    for rec in db_records_today:
+        p = rec.get("period")
+        if p:
+            by_period[int(p)].append(rec)
+
+    for period_num in range(1, 8):
+        with st.expander(
+            f"**P{period_num}** — {PERIOD_TIMES[period_num]}"
+            f"   ({len(by_period[period_num])} present)",
+            expanded=(period_num == current_period)
+        ):
+            if not by_period[period_num]:
+                st.info("No attendance recorded for this period yet.")
+            else:
+                for rec in by_period[period_num]:
+                    col_info, col_img = st.columns([2, 1])
+                    with col_info:
+                        st.write(f"👤 **{rec.get('student_id')}**")
+                        st.write(f"⏰ {rec.get('time_in')}")
+                        conf = rec.get('face_confidence', 0) or 0
+                        st.write(f"🎯 {float(conf):.1f}%")
+                    with col_img:
+                        resolved = resolve_screenshot(rec.get('screenshot_path', ''))
+                        if resolved:
+                            try:
+                                st.image(resolved, width=160)
+                            except Exception:
+                                st.caption("Image unavailable")
+                        else:
+                            st.caption("No screenshot")
 
     # Absent list
     if known_names:

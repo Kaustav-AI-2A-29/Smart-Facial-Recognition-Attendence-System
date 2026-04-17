@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS attendance (
     student_id VARCHAR(20) NOT NULL,
     date VARCHAR(10) NOT NULL,
     time_in VARCHAR(8),
+    period INTEGER,
     screenshot_path VARCHAR(255),
     face_confidence FLOAT,
     liveness_passed BOOLEAN DEFAULT 1,
@@ -83,7 +84,6 @@ CREATE TABLE IF NOT EXISTS attendance (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_student_date ON attendance(student_id, date);
 CREATE INDEX IF NOT EXISTS idx_date ON attendance(date);
 """
 
@@ -128,14 +128,45 @@ class Database:
             conn.close()
 
     def init_schema(self) -> None:
-        """Initialize database schema (idempotent — uses IF NOT EXISTS)."""
+        """Initialize database schema (idempotent — uses IF NOT EXISTS).
+
+        Execution order matters for existing databases:
+        1. Add the 'period' column first (migration — safe to re-run).
+        2. Run the main schema script (CREATE TABLE/INDEX IF NOT EXISTS).
+        3. Create the period-aware unique index (requires the column to exist).
+        """
+        conn = self.get_connection()
         try:
-            with self.get_db() as conn:
-                conn.executescript(_SCHEMA_SQL)
+            # Step 1 — migrate existing DB: add period column if absent
+            try:
+                conn.execute("ALTER TABLE attendance ADD COLUMN period INTEGER")
+                conn.commit()
+                logger.info("Migration: added 'period' column to attendance table.")
+            except Exception:
+                pass  # column already exists — safe to ignore
+
+            # Step 2 — run main schema (all CREATE … IF NOT EXISTS statements)
+            conn.executescript(_SCHEMA_SQL)
+
+            # Step 3 — create period-aware unique index (column now guaranteed present)
+            try:
+                conn.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_student_date_period
+                    ON attendance(student_id, date, period)
+                    """
+                )
+                conn.commit()
+            except Exception:
+                pass  # index already exists — safe to ignore
+
             logger.info("Database schema initialized: %s", self.db_path)
         except Exception as exc:
+            conn.rollback()
             logger.error("Schema initialization failed: %s", exc)
             raise
+        finally:
+            conn.close()
 
     def execute(self, query: str, params: tuple = ()) -> List[sqlite3.Row]:
         """Execute a SELECT query and return all rows."""

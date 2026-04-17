@@ -219,30 +219,53 @@ if st.session_state.selected_student_id:
     today        = date.today()
     start_month  = today.replace(day=1)
 
-    tab_month, tab_all = st.tabs(["📅 This Month", "📂 All Time"])
+    # ── Attendance Timetable ───────────────────────────────────────────────────
+    from datetime import timedelta
+    from frontend.components.attendance_table import render_timetable
+    from backend.attendance_service import get_attendance_by_student
 
-    with tab_month:
-        stats = get_attendance_stats_csv(
-            student_name, start_month.isoformat(), today.isoformat()
+    if "faculty_week_offset" not in st.session_state:
+        st.session_state.faculty_week_offset = 0
+
+    st.markdown("#### 📅 Attendance Timetable")
+
+    current_monday = date.today() - timedelta(days=date.today().weekday())
+    display_monday = current_monday + timedelta(
+        weeks=st.session_state.faculty_week_offset
+    )
+
+    fn1, fn2, fn3 = st.columns([1, 3, 1])
+    with fn1:
+        if st.button("← Prev", key="fac_prev"):
+            st.session_state.faculty_week_offset -= 1
+            st.rerun()
+    with fn2:
+        week_end = display_monday + timedelta(days=4)
+        st.markdown(
+            f"<div style='text-align:center'>"
+            f"{display_monday.strftime('%d %b')} – {week_end.strftime('%d %b %Y')}"
+            f"</div>",
+            unsafe_allow_html=True,
         )
-        c1, c2, c3 = st.columns(3)
-        c1.metric("✅ Present",    stats["present"])
-        c2.metric("❌ Absent",     stats["absent"])
-        c3.metric("📊 Attendance", f"{stats['percentage']}%")
-        records = get_attendance_csv_by_student(student_name, limit=31)
-        render_student_attendance_cards(records)
+    with fn3:
+        if st.button("Next →", key="fac_next"):
+            st.session_state.faculty_week_offset += 1
+            st.rerun()
 
-    with tab_all:
-        all_records = get_attendance_csv_by_student(student_name, limit=365)
-        render_student_attendance_cards(all_records)
-        if all_records:
-            df = pd.DataFrame(all_records)[["date", "time_in", "face_confidence"]]
-            st.download_button(
-                "⬇️ Export CSV",
-                data=df.to_csv(index=False).encode(),
-                file_name=f"{sid}_attendance.csv",
-                mime="text/csv",
-            )
+    att_records = get_attendance_by_student(student["student_id"], limit=400)
+    render_timetable(att_records, week_start=display_monday)
+
+    if att_records:
+        df = pd.DataFrame(att_records)
+        available_cols = [c for c in
+            ["student_id", "date", "period", "time_in", "face_confidence"]
+            if c in df.columns]
+        st.download_button(
+            "⬇️ Export CSV",
+            data=df[available_cols].to_csv(index=False).encode(),
+            file_name=f"{sid}_attendance.csv",
+            mime="text/csv",
+        )
 
     st.divider()
     st.markdown("##### Actions")

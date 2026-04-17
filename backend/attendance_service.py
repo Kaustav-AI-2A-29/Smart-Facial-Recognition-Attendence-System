@@ -10,6 +10,22 @@ from backend.database import db
 
 logger = logging.getLogger(__name__)
 
+PERIOD_HOURS = {9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 6, 15: 7}
+
+
+def get_period_from_time(time_str: str) -> "int | None":
+    """Return period number (1-7) based on HH:MM:SS time string.
+    Returns None if the time falls outside class hours (09:00-16:00).
+    Periods: P1=9-10, P2=10-11, P3=11-12, P4=12-13,
+             P5=13-14, P6=14-15, P7=15-16.
+    """
+    try:
+        hour = int(time_str.split(":")[0])
+        return PERIOD_HOURS.get(hour, None)
+    except Exception:
+        return None
+
+
 
 def record_attendance(
     student_id: str,
@@ -18,7 +34,7 @@ def record_attendance(
     liveness_passed: bool = True,
     marked_by: str = "system",
 ) -> bool:
-    """Record attendance for a student (one record per student per day).
+    """Record attendance for a student (one record per student per period per day).
 
     Args:
         student_id: Student ID string.
@@ -28,40 +44,40 @@ def record_attendance(
         marked_by: 'system' for auto, 'faculty' for manual.
 
     Returns:
-        True if newly recorded, False if already recorded for today.
+        True if newly recorded, False if already recorded for this period today.
     """
     today = date.today().isoformat()
     time_now = datetime.now().strftime("%H:%M:%S")
+    period = get_period_from_time(time_now)
+
+    if period is None:
+        logger.warning("Attendance scanned outside class hours: %s", time_now)
 
     existing = db.execute_one(
-        "SELECT id FROM attendance WHERE student_id = ? AND date = ?",
-        (student_id, today),
+        "SELECT id FROM attendance WHERE student_id = ? AND date = ? AND period IS ?",
+        (student_id, today, period),
     )
     if existing:
         logger.info(
-            "Attendance already recorded today for %s (updating confidence if better)",
-            student_id,
+            "Attendance already recorded for %s on %s period %s",
+            student_id, today, period,
         )
-        existing_conf = db.execute_one(
-            "SELECT face_confidence FROM attendance WHERE student_id = ? AND date = ?",
-            (student_id, today),
-        )
-        if existing_conf and confidence > (existing_conf["face_confidence"] or 0.0):
-            db.execute_update(
-                "UPDATE attendance SET face_confidence = ? WHERE student_id = ? AND date = ?",
-                (confidence, student_id, today),
-            )
         return False
 
     db.execute_insert(
         """
         INSERT INTO attendance
-            (student_id, date, time_in, screenshot_path, face_confidence, liveness_passed, marked_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+            (student_id, date, time_in, period, screenshot_path,
+             face_confidence, liveness_passed, marked_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (student_id, today, time_now, screenshot_path, confidence, liveness_passed, marked_by),
+        (student_id, today, time_now, period, screenshot_path,
+         confidence, liveness_passed, marked_by),
     )
-    logger.info("Attendance recorded: %s on %s at %s", student_id, today, time_now)
+    logger.info(
+        "Attendance recorded: %s on %s at %s (period %s)",
+        student_id, today, time_now, period,
+    )
     return True
 
 
