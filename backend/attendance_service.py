@@ -51,15 +51,16 @@ def record_attendance(
     period = get_period_from_time(time_now)
 
     if period is None:
-        logger.warning("Attendance scanned outside class hours: %s", time_now)
+        logger.warning("Attendance scanned outside class hours: %s — recording with period=NULL", time_now)
 
+    # Use IS for NULL-safe period comparison (works correctly for both NULL and int values)
     existing = db.execute_one(
         "SELECT id FROM attendance WHERE student_id = ? AND date = ? AND period IS ?",
         (student_id, today, period),
     )
     if existing:
         logger.info(
-            "Attendance already recorded for %s on %s period %s",
+            "Attendance already recorded for %s on %s period %s — skipping duplicate",
             student_id, today, period,
         )
         return False
@@ -75,8 +76,8 @@ def record_attendance(
          confidence, liveness_passed, marked_by),
     )
     logger.info(
-        "Attendance recorded: %s on %s at %s (period %s)",
-        student_id, today, time_now, period,
+        "NEW attendance record: student=%s date=%s time=%s period=%s conf=%.1f%%",
+        student_id, today, time_now, period, confidence,
     )
     return True
 

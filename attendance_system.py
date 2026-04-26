@@ -117,7 +117,7 @@ def ensure_csv_header(filepath: str):
 
 
 def load_todays_attendance(filepath: str) -> set:
-    """Return a set of names already marked today (for DB dedup only)."""
+    """Return a set of LOWERCASE names already marked today (for in-memory dedup)."""
     marked = set()
     today  = datetime.now().strftime("%Y-%m-%d")
 
@@ -129,17 +129,17 @@ def load_todays_attendance(filepath: str) -> set:
         next(reader, None)  # skip header row
         for row in reader:
             if len(row) >= 3 and row[2] == today:
-                marked.add(row[0])
+                marked.add(row[0].lower())  # FIX: normalize to lowercase
     return marked
 
 
 def mark_attendance(name: str, filepath: str, marked_today: set,
                     confidence: float = 0.0, screenshot_path: str = ""):
-    """Append EVERY recognition event to the CSV log (no dedup).
+    """Append EVERY recognition event to the CSV log (no per-day dedup).
 
-    The set `marked_today` is still updated so the *database* only gets
-    one record per student per day (preventing duplicate DB rows), but
-    the CSV file captures every single attendance event for a full log.
+    The set `marked_today` tracks which names have been seen this session
+    (for display in the status bar), but the CSV captures every event.
+    Database deduplication is handled per-period inside record_attendance().
     """
     now      = datetime.now()
     today    = now.strftime("%Y-%m-%d")
@@ -150,8 +150,8 @@ def mark_attendance(name: str, filepath: str, marked_today: set,
         writer = csv.writer(f)
         writer.writerow([name, time_str, today, f"{confidence:.1f}%", screenshot_path])
 
-    marked_today.add(name)  # used to gate the DB write only
-    print(f"[ATTENDANCE] ✓ {name} marked at {time_str} on {today} (conf={confidence:.1f}%)")
+    marked_today.add(name.lower())  # FIX: store lowercase so set math works correctly
+    print(f"[ATTENDANCE] OK {name} marked at {time_str} on {today} (conf={confidence:.1f}%) -> Added to present set")
 
 
 def get_student_id_by_name(name: str) -> str:
@@ -452,25 +452,29 @@ def main():
             face_encodings = face_recognition.face_encodings(rgb_small, face_locations)
 
             if face_encodings:
-                # FIX 3: Process ALL detected faces, not just the first one
+                print(f"[DETECT] {len(face_encodings)} face(s) found in frame {frame_num}")
+                # Process ALL detected faces, not just the first one
                 for face_enc, loc in zip(face_encodings, face_locations):
                     # Scale coordinates back to original frame size
                     top, right, bottom, left = [v * 2 for v in loc]
 
                     # Identify - returns (name, confidence)
                     raw_name, confidence = identify_face(face_enc, known_encodings, known_names, MATCH_THRESHOLD)
+                    print(f"[RECOGNIZE] Result: '{raw_name}' | Confidence: {confidence:.1f}% | Threshold dist: <{MATCH_THRESHOLD}")
 
                     if raw_name == "Unknown":
                         tracker.update("Unknown")
                         draw_face_box(frame, top, right, bottom, left, "Unknown", False)
                     else:
-                        # FIX 1: Normalize to lowercase
+                        # Normalize to lowercase for consistent comparison
                         raw_name = raw_name.lower()
                         # Stability check
                         newly_confirmed, display_name = tracker.update(raw_name)
+                        print(f"[TRACKER] candidate='{tracker.candidate}' streak={tracker.streak}/{CONFIRM_FRAMES}")
 
                         # Mark attendance on confirmation
                         if newly_confirmed:
+                            print(f"[CONFIRMED] Identity locked: '{newly_confirmed}'")
                             # Save screenshot for every confirmed recognition
                             timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
                             screenshot_filename = f"{SCREENSHOTS_DIR}/{newly_confirmed}_{timestamp_str}.jpg"
@@ -479,18 +483,16 @@ def main():
                             cv2.imwrite(screenshot_abs_path, frame)
                             print(f"[INFO] Screenshot saved: {screenshot_abs_path}")
 
-                            # Check *before* mark_attendance adds to the set
-                            is_first_today = newly_confirmed not in marked_today
-
-                            # Always write to CSV — full event log, no dedup
+                            # Always write to CSV — full event log (no dedup)
                             mark_attendance(newly_confirmed, ATTENDANCE_FILE, marked_today,
                                             confidence=confidence, screenshot_path=screenshot_abs_path)
 
-                            # Save to database only once per student per day
-                            if is_first_today:
-                                save_attendance_to_database(newly_confirmed, screenshot_abs_path, confidence)
-                            else:
-                                print(f"[DB] Skipping DB write for {newly_confirmed} — already recorded today")
+                            # FIX: Save to DB for EVERY recognition event.
+                            # record_attendance() already deduplicates per student+date+period,
+                            # so calling it multiple times is safe and correctly handles new periods.
+                            print(f"[DB] Attempting DB write for '{newly_confirmed}' (conf={confidence:.1f}%)...")
+                            db_result = save_attendance_to_database(newly_confirmed, screenshot_abs_path, confidence)
+                            print(f"[DB] Write result: {'NEW record inserted' if db_result else 'Already exists for this period'}")
 
                             # Notification
                             notification_text = f"ATTENDANCE MARKED: {newly_confirmed}"
@@ -541,14 +543,19 @@ def main():
     print("[INFO] Session ended.")
     
     # Session summary
-    all_people = set(known_names)
-    absent_today = all_people - marked_today
-    
+    # FIX: Normalize all known names to lowercase so set subtraction works correctly.
+    # known_names may contain duplicates (one per training image), so deduplicate with set().
+    all_people_lower = {n.lower() for n in known_names}  # e.g. {'kaustav', 'soumita', ...}
+    # marked_today already stores lowercase names (see mark_attendance fix above)
+    present_set = marked_today  # already lowercase
+    absent_set  = all_people_lower - present_set  # no overlap guaranteed
+
     print("\n" + "=" * 50)
     print("  SESSION SUMMARY")
     print("=" * 50)
-    print(f"Present : {', '.join(sorted(marked_today)) if marked_today else 'None'}")
-    print(f"Absent  : {', '.join(sorted(absent_today)) if absent_today else 'None'}")
+    print(f"Present : {', '.join(sorted(present_set)) if present_set else 'None'}")
+    print(f"Absent  : {', '.join(sorted(absent_set))  if absent_set  else 'None'}")
+    print(f"Total registered: {len(all_people_lower)} | Present: {len(present_set)} | Absent: {len(absent_set)}")
     print("=" * 50 + "\n")
 
 

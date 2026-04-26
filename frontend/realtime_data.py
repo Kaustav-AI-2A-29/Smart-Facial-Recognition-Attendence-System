@@ -51,6 +51,7 @@ def load_fresh_attendance_data(student_id: str, limit: int = 30) -> pd.DataFrame
             a.student_id,
             a.date,
             a.time_in,
+            a.period,
             a.screenshot_path,
             a.face_confidence,
             a.created_at,
